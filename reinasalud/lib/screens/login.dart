@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       // logo de Reina Salud
                       Image.asset(
-                        'assets/logo.jpg',
+                        'assets/icon.png',
                         height: 80,
                       ),
                       const SizedBox(height: 24),

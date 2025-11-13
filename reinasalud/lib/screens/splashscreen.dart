@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
-                'assets/logo.png',
+                'assets/icon.png',
                 height: 80,
               ),
               const SizedBox(height: 16),
