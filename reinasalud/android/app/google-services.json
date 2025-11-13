@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1098682891073",
+    "project_id": "reinasalud1",
+    "storage_bucket": "reinasalud1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1098682891073:android:0bf40383b9a0b15531bfc0",
+        "android_client_info": {
+          "package_name": "com.example.reinasalud"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1098682891073-453ft5bl4l1olcravlltijk7k15rb03n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.reinasalud",
+            "certificate_hash": "22b32e5c67340f0e2b1b1c2ac6ac7a454c60c428"
+          }
+        },
+        {
+          "client_id": "1098682891073-n9t4n9qfcc4te81kr007mfgb6neps2ht.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8PFwZ-H6VneEfNneSE_A-iyKAKdM-_as"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1098682891073-n9t4n9qfcc4te81kr007mfgb6neps2ht.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
