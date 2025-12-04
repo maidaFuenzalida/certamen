@@ -4,6 +4,7 @@ import 'profile.dart';
 import 'map.dart';
 import 'cart.dart';
 import 'search.dart';
+import 'navegation.dart'; // 👈 IMPORTA TU DRAWER
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,19 +14,35 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 1; // 0 perfil, 1 home, 2 mapa, 3 carrito
+  int _currentIndex = 1; // 0 perfil, 1 home, 2 mapa
 
-  // Carruseles
+  // Estados de “presionado”
+  bool _menuPressed = false;
+  bool _cartPressed = false;
+  bool _searchActive = false;
+  bool _offersArrowPressed = false;
+
+  // Carrusel banners
   final PageController _bannerController = PageController();
-  final PageController _offersController = PageController(viewportFraction: 0.8);
-
-  // índices actuales de cada carrusel
   int _bannerPage = 0;
-  int _offersPage = 0;
 
-  static const int _bannerTotal = 3;
-  static const int _offersTotal = 3;
+  // URLs de promociones (ya las tenías)
+  final List<String> _bannerImages = const [
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2FPromocion1.png?alt=media&token=0b9e7f28-bb1e-4df8-800e-e23b3f5308f2',
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2FPromocion3.jpg?alt=media&token=fc46f5b3-42ec-411c-af45-61d17f0ae579',
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2Fpromocion4.jpg?alt=media&token=e585aaa2-ded7-45db-98cd-1cbada3d551f',
+  ];
 
+  final List<String> _offerImages = const [
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2FPromocion2.png?alt=media&token=44503c80-6c67-4053-9679-404848305ffa',
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2Fpromocion5.png?alt=media&token=cc8b157f-21c7-4123-bdca-7cc2d9746328',
+    'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/promociones%2Fpromocion7.png?alt=media&token=a2d27822-a4ed-449a-b232-a191519ffe61',
+  ];
+
+  // Color celeste principal
+  static const Color _turquoise = Color(0xFF45B7B7);
+
+  // Navegación bottom bar
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
 
@@ -38,35 +55,23 @@ class _HomeScreenState extends State<HomeScreen> {
         screen = const HomeScreen();
         break;
       case 2:
-        screen = const MapScreen();
-        break;
-      case 3:
       default:
-        screen = const CartScreen();
+        screen = const MapScreen();
     }
 
-    Navigator.push(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => screen),
     );
   }
 
-  // Mover carrusel de banners
+  // Cambiar página del carrusel principal
   void _goBanner(int delta) {
+    final total = _bannerImages.length;
     final newPage = _bannerPage + delta;
-    if (newPage < 0 || newPage >= _bannerTotal) return;
-    _bannerController.animateToPage(
-      newPage,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
+    if (newPage < 0 || newPage >= total) return;
 
-  // Mover carrusel de ofertas
-  void _goOffers(int delta) {
-    final newPage = _offersPage + delta;
-    if (newPage < 0 || newPage >= _offersTotal) return;
-    _offersController.animateToPage(
+    _bannerController.animateToPage(
       newPage,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
@@ -76,7 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _bannerController.dispose();
-    _offersController.dispose();
     super.dispose();
   }
 
@@ -85,7 +89,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      // AppBar similar al diseño: menú izquierda + carrito derecha
+      drawer: const ReinaNavigationDrawer(), // 👈 Drawer lateral
+
+      // AppBar: menú izquierda + carrito derecha
       appBar: AppBar(
         automaticallyImplyLeading: false,
         elevation: 0,
@@ -93,45 +99,120 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: cs.background,
         title: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () {},
+            // ====== BOTÓN MENÚ (3 rayitas) ======
+            Builder(
+              builder: (ctx) => GestureDetector(
+                onTapDown: (_) {
+                  setState(() => _menuPressed = true);
+                },
+                onTapCancel: () {
+                  setState(() => _menuPressed = false);
+                },
+                onTapUp: (_) {
+                  setState(() => _menuPressed = false);
+                  Scaffold.of(ctx).openDrawer(); // 👈 abre el drawer
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.menu,
+                    color: _menuPressed ? _turquoise : Colors.grey,
+                  ),
+                ),
+              ),
             ),
+
             const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.shopping_cart_outlined),
-              onPressed: () {
+
+            // ====== BOTÓN CARRITO ======
+            GestureDetector(
+              onTapDown: (_) {
+                setState(() => _cartPressed = true);
+              },
+              onTapCancel: () {
+                setState(() => _cartPressed = false);
+              },
+              onTapUp: (_) {
+                setState(() => _cartPressed = false);
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const CartScreen()),
                 );
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(
+                  Icons.shopping_cart_outlined,
+                  color: _cartPressed ? _turquoise : Colors.grey,
+                ),
+              ),
             ),
           ],
         ),
       ),
+
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // Barra de búsqueda (como en el diseño)
+          // =========================
+          // BARRA DE BÚSQUEDA
+          // =========================
           GestureDetector(
-            onTap: () {
+            onTapDown: (_) {
+              setState(() => _searchActive = true);
+            },
+            onTapCancel: () {
+              setState(() => _searchActive = false);
+            },
+            onTapUp: (_) {
+              setState(() => _searchActive = false);
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SearchScreen()),
               );
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: cs.outlineVariant),
+                border: Border.all(
+                  width: 2,
+                  color: _searchActive
+                      ? _turquoise // contorno celeste al presionar
+                      : const Color(0xFFB0BEC5), // gris al inicio
+                ),
+                boxShadow: [
+                  if (_searchActive)
+                    BoxShadow(
+                      color: _turquoise.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  else
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                ],
               ),
               child: Row(
                 children: const [
-                  Icon(Icons.search),
+                  Icon(
+                    Icons.search,
+                    color: Color(0xFF90A4AE), // icono gris
+                  ),
                   SizedBox(width: 12),
-                  Text('Buscar remedio'),
+                  Text(
+                    'Buscar remedio',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF78909C), // texto gris
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -139,278 +220,206 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
 
           // =========================
-          // CARRUSEL 1 – BANNERS
+          // CARRUSEL BANNER PRINCIPAL
           // =========================
-          SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                PageView(
-                  controller: _bannerController,
-                  onPageChanged: (i) => setState(() => _bannerPage = i),
-                  children: [
-                    _BannerCard(
-                      color: const Color(0xFF5B2ECC), // morado tipo promo
-                      title: '35% OFF',
-                      subtitle: 'En medicamentos inscritos\ncon tu RUT',
-                      buttonText: 'Comprar',
-                    ),
-                    _BannerCard(
-                      color: Colors.purple.shade700,
-                      title: '50% OFF',
-                      subtitle: 'En tu segunda unidad\nde vitaminas',
-                      buttonText: 'Ver más',
-                    ),
-                    _BannerCard(
-                      color: Colors.deepPurple,
-                      title: 'Envío gratis',
-                      subtitle: 'Compras sobre \$20.000',
-                      buttonText: 'Aprovechar',
-                    ),
-                  ],
-                ),
-
-                // Flecha izquierda
-                if (_bannerPage > 0)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios),
-                        color: Colors.white,
-                        onPressed: () => _goBanner(-1),
-                      ),
-                    ),
+          if (_bannerImages.isNotEmpty)
+            SizedBox(
+              height: 170,
+              child: Stack(
+                children: [
+                  PageView.builder(
+                    controller: _bannerController,
+                    onPageChanged: (i) => setState(() => _bannerPage = i),
+                    itemCount: _bannerImages.length,
+                    itemBuilder: (context, index) {
+                      final url = _bannerImages[index];
+                      return _PromoBanner(imageUrl: url);
+                    },
                   ),
 
-                // Flecha derecha
-                if (_bannerPage < _bannerTotal - 1)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_forward_ios),
-                        color: Colors.white,
-                        onPressed: () => _goBanner(1),
+                  // Flecha izquierda
+                  if (_bannerPage > 0)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios),
+                          color: Colors.white,
+                          onPressed: () => _goBanner(-1),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+
+                  // Flecha derecha
+                  if (_bannerPage < _bannerImages.length - 1)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios),
+                          color: Colors.white,
+                          onPressed: () => _goBanner(1),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 24),
 
           // =========================
-          // Título "Ofertas de hoy"
+          // TÍTULO "Ofertas de hoy"
           // =========================
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Ofertas de hoy',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(width: 8),
+
+              // Flecha “ver más” gris → celeste
+              GestureDetector(
+                onTapDown: (_) {
+                  setState(() => _offersArrowPressed = true);
+                },
+                onTapCancel: () {
+                  setState(() => _offersArrowPressed = false);
+                },
+                onTapUp: (_) {
+                  setState(() => _offersArrowPressed = false);
+                  // aquí si quieres navegar a otra pantalla de ofertas
+                },
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 18,
+                  color: _offersArrowPressed ? _turquoise : Colors.grey,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
 
           // =========================
-          // CARRUSEL 2 – OFERTAS
+          // LISTA HORIZONTAL DE OFERTAS
           // =========================
           SizedBox(
-            height: 200,
-            child: Stack(
-              children: [
-                PageView(
-                  controller: _offersController,
-                  onPageChanged: (i) => setState(() => _offersPage = i),
-                  children: const [
-                    _ProductCard(
-                      title: 'Mascota',
-                      subtitle: 'Alimento y cuidados',
-                      discount: '50% OFF',
-                    ),
-                    _ProductCard(
-                      title: 'Pañales y Alimentos…',
-                      subtitle: 'Productos seleccionados',
-                      discount: '40% OFF',
-                    ),
-                    _ProductCard(
-                      title: 'Cuidado personal',
-                      subtitle: 'Higiene y belleza',
-                      discount: '30% OFF',
-                    ),
-                  ],
-                ),
-
-                // Flecha izquierda
-                if (_offersPage > 0)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios),
-                        onPressed: () => _goOffers(-1),
-                      ),
-                    ),
-                  ),
-
-                // Flecha derecha
-                if (_offersPage < _offersTotal - 1)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_forward_ios),
-                        onPressed: () => _goOffers(1),
-                      ),
-                    ),
-                  ),
-              ],
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _offerImages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final url = _offerImages[index];
+                return _OfferCard(imageUrl: url);
+              },
             ),
           ),
         ],
       ),
+
+      // BOTTOM NAV
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onNavTap,
         type: BottomNavigationBarType.fixed,
+        selectedItemColor: _turquoise, // pestaña activa celeste
+        unselectedItemColor: Colors.grey, // pestañas inactivas gris
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapa'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart), label: 'Carrito'),
         ],
       ),
     );
   }
 }
 
-class _BannerCard extends StatelessWidget {
-  final Color color;
-  final String title;
-  final String subtitle;
-  final String buttonText;
+// =========================
+// WIDGETS DE APOYO
+// =========================
 
-  const _BannerCard({
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.buttonText,
-  });
+class _PromoBanner extends StatelessWidget {
+  final String imageUrl;
+
+  const _PromoBanner({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: Icon(Icons.image_not_supported, color: Colors.grey),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.white),
-          ),
-          const Spacer(),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.onPrimary,
-                foregroundColor: color,
-              ),
-              onPressed: () {},
-              child: Text(buttonText),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _ProductCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String discount;
+class _OfferCard extends StatelessWidget {
+  final String imageUrl;
 
-  const _ProductCard({
-    required this.title,
-    required this.subtitle,
-    required this.discount,
-  });
+  const _OfferCard({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(12),
+      width: 170,
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             blurRadius: 8,
+            offset: const Offset(0, 4),
             color: Colors.black.withOpacity(0.05),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // “Imagen” morada simulada
-          Container(
-            height: 90,
-            decoration: BoxDecoration(
-              color: const Color(0xFF5B2ECC),
-              borderRadius: BorderRadius.circular(12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: Icon(Icons.image_not_supported, color: Colors.grey),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          Text(
-            subtitle,
-            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            discount,
-            style: TextStyle(
-              color: cs.primary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

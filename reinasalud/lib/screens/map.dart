@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'home.dart';
-import 'cart.dart';
 import 'profile.dart';
 
 class MapScreen extends StatefulWidget {
@@ -13,392 +13,282 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchText = '';
-  int _currentIndex = 1; // 0=Home, 1=Mapa, 2=Carrito, 3=Perfil
+  GoogleMapController? _mapController;
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  // índice bottom bar → 0 perfil, 1 home, 2 mapa
+  int _currentIndex = 2;
 
-  void _onNavTapped(int index) {
+  // color celeste principal
+  static const Color _turquoise = Color(0xFF45B7B7);
+
+  // Centro aproximado de La Reina
+  static const LatLng _laReinaCenter = LatLng(-33.4418, -70.5393);
+
+  // Cadena seleccionada: 'cruz_verde', 'ahumada', 'salcobrand' o null = todas
+  String? _selectedChain;
+
+  // URLs de los logos (Firebase Storage)
+  static const String cruzVerdeLogoUrl =
+      'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/logos%2FLogocruzverde.png?alt=media&token=4ccb4e8e-2c79-44f8-896d-dbabbb8f8494';
+  static const String ahumadaLogoUrl =
+      'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/logos%2FLogo%20ahumada.png?alt=media&token=719cf382-5420-48fc-8494-3dc1df581fd1';
+  static const String salcobrandLogoUrl =
+      'https://firebasestorage.googleapis.com/v0/b/reinasalud1.firebasestorage.app/o/logos%2FLogosalcobrand.png?alt=media&token=633aa417-bbc5-4040-88d8-856d9c6a432c';
+
+  // -----------------------------
+  // Navegación bottom bar
+  // -----------------------------
+  void _onNavTap(int index) {
     if (index == _currentIndex) return;
 
+    Widget screen;
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        screen = const ProfileScreen();
         break;
       case 1:
-        // estamos en mapa
+        screen = const HomeScreen();
         break;
       case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CartScreen()),
-        );
-        break;
-      case 3:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-        );
-        break;
+      default:
+        screen = const MapScreen();
     }
 
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
+  // -----------------------------
+  // Animar cámara al centro
+  // -----------------------------
+  void _animateToLaReina() {
+    if (_mapController == null) return;
+
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        const CameraPosition(
+          target: _laReinaCenter,
+          zoom: 14.5,
+          tilt: 10,
+        ),
+      ),
+    );
+  }
+
+  // Cuando el usuario toca una card de cadena
+  void _onChainSelected(String chain) {
     setState(() {
-      _currentIndex = index;
-    });
-  }
-
-  // ---------- CRUD FARMACIAS ----------
-
-  Future<void> _addPharmacy() async {
-    final nameCtrl = TextEditingController();
-    final addressCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Agregar farmacia',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre farmacia',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Dirección',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Notas (ej: horarios)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final name = nameCtrl.text.trim();
-                      final address = addressCtrl.text.trim();
-                      final notes = notesCtrl.text.trim();
-
-                      if (name.isEmpty || address.isEmpty) return;
-
-                      await FirebaseFirestore.instance
-                          .collection('pharmacies')
-                          .add({
-                        'name': name,
-                        'address': address,
-                        'notes': notes,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      });
-
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Farmacia agregada'),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Guardar'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _editPharmacy(
-    String docId,
-    Map<String, dynamic> data,
-  ) async {
-    final nameCtrl = TextEditingController(text: data['name'] ?? '');
-    final addressCtrl = TextEditingController(text: data['address'] ?? '');
-    final notesCtrl = TextEditingController(text: data['notes'] ?? '');
-
-    await showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Editar farmacia',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre farmacia',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Dirección',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Notas',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final name = nameCtrl.text.trim();
-                      final address = addressCtrl.text.trim();
-                      final notes = notesCtrl.text.trim();
-
-                      if (name.isEmpty || address.isEmpty) return;
-
-                      await FirebaseFirestore.instance
-                          .collection('pharmacies')
-                          .doc(docId)
-                          .update({
-                        'name': name,
-                        'address': address,
-                        'notes': notes,
-                      });
-
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Farmacia actualizada'),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Guardar'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _deletePharmacy(String docId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminar farmacia'),
-        content: const Text('¿Seguro que quieres eliminar esta farmacia?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await FirebaseFirestore.instance
-          .collection('pharmacies')
-          .doc(docId)
-          .delete();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Farmacia eliminada')),
-        );
+      // Si toca la misma card de nuevo → deseleccionar (mostrar todas)
+      if (_selectedChain == chain) {
+        _selectedChain = null;
+      } else {
+        _selectedChain = chain;
       }
+    });
+
+    _animateToLaReina();
+  }
+
+  // -----------------------------
+  // Card de cada cadena
+  // -----------------------------
+  Widget _buildChainCard({
+    required String chain,
+    required String label,
+    required String logoUrl,
+  }) {
+    final isSelected = _selectedChain == chain;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onChainSelected(chain),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          child: Card(
+            elevation: isSelected ? 6 : 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isSelected ? _turquoise : Colors.grey.shade300,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (logoUrl.startsWith('http'))
+                    SizedBox(
+                      height: 32,
+                      child: Image.network(
+                        logoUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.local_pharmacy),
+                      ),
+                    )
+                  else
+                    const Icon(Icons.local_pharmacy),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? _turquoise : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // -----------------------------
+  // Markers desde Firestore
+  // -----------------------------
+  Set<Marker> _buildMarkers(List<QueryDocumentSnapshot> docs) {
+    final markers = <Marker>{};
+
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final lat = (data['lat'] as num?)?.toDouble();
+      final lng = (data['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) continue;
+
+      final name = (data['name'] ?? '').toString();
+      final address = (data['address'] ?? '').toString();
+      final chain = (data['chain'] ?? '').toString();
+
+      markers.add(
+        Marker(
+          markerId: MarkerId(doc.id),
+          position: LatLng(lat, lng),
+          infoWindow: InfoWindow(
+            title: name,
+            snippet: '$address (${_chainLabel(chain)})',
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  String _chainLabel(String chain) {
+    switch (chain) {
+      case 'cruz_verde':
+        return 'Cruz Verde';
+      case 'ahumada':
+        return 'Ahumada';
+      case 'salcobrand':
+        return 'Salcobrand';
+      default:
+        return chain;
     }
   }
 
-  // ---------- UI MAPA (LISTA + BÚSQUEDA) ----------
-
+  // -----------------------------
+  // BUILD
+  // -----------------------------
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mapa de farmacias'),
         centerTitle: true,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addPharmacy,
-        child: const Icon(Icons.add_location_alt),
+        backgroundColor: cs.background,
+        foregroundColor: Colors.black87,
+        elevation: 0,
       ),
       body: Column(
         children: [
-          // BARRA DE BÚSQUEDA
+          // 3 CARDS ARRIBA
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchText = value.toLowerCase();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Buscar farmacia o dirección...',
-                prefixIcon: const Icon(Icons.search),
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
+              children: [
+                _buildChainCard(
+                  chain: 'cruz_verde',
+                  label: 'Cruz Verde',
+                  logoUrl: cruzVerdeLogoUrl,
+                ),
+                const SizedBox(width: 6),
+                _buildChainCard(
+                  chain: 'ahumada',
+                  label: 'Ahumada',
+                  logoUrl: ahumadaLogoUrl,
+                ),
+                const SizedBox(width: 6),
+                _buildChainCard(
+                  chain: 'salcobrand',
+                  label: 'Salcobrand',
+                  logoUrl: salcobrandLogoUrl,
+                ),
+              ],
             ),
           ),
+
+          // MAPA
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('pharmacies')
-                  .orderBy('createdAt', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(
-                    child: Text('Error cargando farmacias'),
+                    child: Text('Error al cargar farmacias'),
                   );
                 }
-
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final name =
-                      (data['name'] ?? '').toString().toLowerCase().trim();
-                  final address =
-                      (data['address'] ?? '').toString().toLowerCase().trim();
-                  return name.contains(_searchText) ||
-                      address.contains(_searchText);
-                }).toList();
+                var docs = snapshot.data!.docs;
 
-                if (docs.isEmpty) {
+                // Filtrar por cadena seleccionada
+                if (_selectedChain != null) {
+                  docs = docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['chain'] == _selectedChain;
+                  }).toList();
+                }
+
+                final markers = _buildMarkers(docs);
+
+                if (markers.isEmpty) {
                   return const Center(
-                    child: Text('No hay farmacias registradas'),
+                    child: Text(
+                      'No hay farmacias registradas para esta cadena.\n'
+                      'Agrégalas desde el mantenedor.',
+                      textAlign: TextAlign.center,
+                    ),
                   );
                 }
 
-                return ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final name = data['name'] ?? 'Sin nombre';
-                    final address = data['address'] ?? '';
-                    final notes = data['notes'] ?? '';
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.location_on,
-                          color: colorScheme.primary,
-                        ),
-                        title: Text(
-                          name.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(address.toString()),
-                            if (notes.toString().isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                notes.toString(),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ],
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              _editPharmacy(doc.id, data);
-                            } else if (value == 'delete') {
-                              _deletePharmacy(doc.id);
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Editar'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Eliminar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                return GoogleMap(
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                    _animateToLaReina();
                   },
+                  initialCameraPosition: const CameraPosition(
+                    target: _laReinaCenter,
+                    zoom: 13,
+                  ),
+                  markers: markers,
+                  myLocationEnabled: false,
+                  zoomControlsEnabled: true,
                 );
               },
             ),
@@ -406,29 +296,17 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
 
-      // BOTTOM NAV
+      // BOTTOM NAV BAR
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: _onNavTapped,
-        selectedItemColor: colorScheme.primary,
+        onTap: _onNavTap,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: _turquoise,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Mapa',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Carrito',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapa'),
         ],
       ),
     );

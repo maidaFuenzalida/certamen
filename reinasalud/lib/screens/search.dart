@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'product_detail.dart';
+import 'cart.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -12,201 +14,44 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
   String _searchText = '';
+  bool _searchFocused = false;
+
+  // Colores de diseño
+  static const Color turquoise = Color(0xFF45B7B7);
+  static const Color lightGreyBg = Color(0xFFF8F9FB);
+  static const Color greyText = Color(0xFF9E9E9E);
+  static const Color orange = Color(0xFFF27D33);
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocusNode.addListener(() {
+      setState(() {
+        _searchFocused = _searchFocusNode.hasFocus;
+      });
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _addProduct() async {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    final priceCtrl = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Agregar producto",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Nombre",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: descCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: "Descripción",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: priceCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Precio",
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Cancelar"),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final name = nameCtrl.text.trim();
-                      final description = descCtrl.text.trim();
-                      final price =
-                          double.tryParse(priceCtrl.text.trim()) ?? 0;
-
-                      if (name.isEmpty || description.isEmpty) return;
-
-                      await FirebaseFirestore.instance
-                          .collection("products")
-                          .add({
-                        "name": name,
-                        "description": description,
-                        "price": price,
-                        "createdAt": FieldValue.serverTimestamp(),
-                      });
-
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: const Text("Guardar"),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _editProduct(String id, Map<String, dynamic> data) async {
-    final nameCtrl = TextEditingController(text: data["name"]);
-    final descCtrl = TextEditingController(text: data["description"]);
-    final priceCtrl = TextEditingController(text: data["price"].toString());
-
-    await showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Editar producto",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                    labelText: "Nombre", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: descCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                    labelText: "Descripción", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: priceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                    labelText: "Precio", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Cancelar"),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await FirebaseFirestore.instance
-                          .collection("products")
-                          .doc(id)
-                          .update({
-                        "name": nameCtrl.text.trim(),
-                        "description": descCtrl.text.trim(),
-                        "price": double.tryParse(priceCtrl.text) ?? 0,
-                      });
-
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: const Text("Guardar"),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _deleteProduct(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Eliminar producto"),
-        content: const Text("¿Seguro que quieres eliminar este producto?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancelar"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Eliminar"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await FirebaseFirestore.instance
-          .collection("products")
-          .doc(id)
-          .delete();
-    }
-  }
-
+  // =============================
+  // Agregar al carrito
+  // =============================
   Future<void> _addToCart(Map<String, dynamic> data) async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Debes iniciar sesión"),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes iniciar sesión")),
+      );
       return;
     }
 
@@ -215,49 +60,169 @@ class _SearchScreenState extends State<SearchScreen> {
         .doc(user.uid)
         .collection("cart")
         .add({
-      "name": data["name"],
-      "description": data["description"],
-      "price": data["price"],
+      "name": data["productName"] ?? '',
+      "description": data["description"] ?? '',
+      "price": (data["price"] ?? 0).toDouble(),
+      "imageUrl": (data["imageUrl"] ?? '').toString().trim(), // 👈 NUEVO
+      "quantity": 1, // 👈 NUEVO
       "createdAt": FieldValue.serverTimestamp(),
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text("Agregado al carrito"),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Agregado al carrito")),
+    );
+  }
+
+  // Dialogo de confirmación "Añadido al carrito"
+  Future<void> _confirmAddToCart(
+      Map<String, dynamic> data, double price) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Añadido al Carrito',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Total: \$${price.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: greyText,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(color: greyText),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text(
+                        'Confirmar',
+                        style: TextStyle(color: turquoise),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _addToCart(data);
+    }
+  }
+
+  // =============================
+  // Texto + color del estado
+  // =============================
+  (String, Color) _status(bool requiresPrescription, bool inStock) {
+    if (!inStock) return ('Sin stock', greyText);
+    if (requiresPrescription) return ('Requiere receta médica', orange);
+    return ('Disponible', turquoise);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Buscar remedio")),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addProduct,
-        child: const Icon(Icons.add),
+      backgroundColor: lightGreyBg,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: lightGreyBg,
+        foregroundColor: Colors.black87,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Resultado búsqueda",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CartScreen()),
+              );
+            },
+          )
+        ],
       ),
+
+      // =============================
+      // BODY
+      // =============================
       body: Column(
         children: [
+          // -------------------------------------------
+          // BARRA DE BÚSQUEDA
+          // -------------------------------------------
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) {
-                setState(() => _searchText = v.toLowerCase());
-              },
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: "Paracetamol, Ibuprofeno...",
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: _searchFocused ? turquoise : Colors.grey.shade400,
+                  width: 1.5,
+                ),
+              ),
+              child: TextField(
+                focusNode: _searchFocusNode,
+                controller: _searchController,
+                onChanged: (v) {
+                  setState(() => _searchText = v.toLowerCase().trim());
+                },
+                cursorColor: turquoise,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search, color: turquoise),
+                  hintText: "Busca tus medicamentos",
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  filled: false,
+                ),
               ),
             ),
           ),
+
+          // -------------------------------------------
+          // RESULTADOS
+          // -------------------------------------------
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection("products")
-                  .orderBy("createdAt", descending: true)
+                  .collection("medications")
+                  .orderBy("productName")
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -265,81 +230,258 @@ class _SearchScreenState extends State<SearchScreen> {
                 }
 
                 final docs = snapshot.data!.docs.where((doc) {
-                  final name = doc["name"]
-                      .toString()
-                      .toLowerCase()
-                      .trim();
+                  final data = doc.data() as Map<String, dynamic>;
+                  final name =
+                      (data["productName"] ?? '').toString().toLowerCase();
+                  if (_searchText.isEmpty) return false;
                   return name.contains(_searchText);
                 }).toList();
 
                 if (docs.isEmpty) {
-                  return const Center(child: Text("Sin resultados"));
+                  return const Center(
+                    child:
+                        Text("Sin resultados", style: TextStyle(color: greyText)),
+                  );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
                     final data = docs[i].data() as Map<String, dynamic>;
-                    final price = (data["price"] ?? 0).toDouble();
 
-                    return Card(
-                      child: ListTile(
-                        leading: Icon(Icons.medication, color: colors.primary),
-                        title: Text(
-                          data["name"],
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text("\$$price"),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.add_shopping_cart),
-                              onPressed: () => _addToCart(data),
+                    final chain = (data["pharmacy"] ?? '').toString();
+                    final chainLogo =
+                        (data["pharmacyLogo"] ?? '').toString().trim();
+                    final productName =
+                        (data["productName"] ?? '').toString();
+                    final description =
+                        (data["description"] ?? '').toString();
+                    final price = (data["price"] ?? 0).toDouble();
+                    final requiresPrescription =
+                        data["requiresPrescription"] == true;
+                    final inStock = data["inStock"] != false;
+
+                    final (statusText, statusColor) =
+                        _status(requiresPrescription, inStock);
+
+                    return _SearchResultCard(
+                      chainName: chain.isEmpty ? 'Farmacia' : chain,
+                      logoUrl: chainLogo,
+                      medicationName: productName,
+                      description: description,
+                      price: price,
+                      statusText: statusText,
+                      statusColor: statusColor,
+                      inStock: inStock,
+                      onAdd: () => _confirmAddToCart(data, price),
+                      onBuy: () async {
+                        await _addToCart(data);
+                        if (!context.mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CartScreen(),
+                          ),
+                        );
+                      },
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailScreen(
+                              name: productName,
+                              description: description,
+                              price: price,
+                              imageUrl: data["imageUrl"] ?? "",
+                              requiresPrescription: requiresPrescription,
                             ),
-                            PopupMenuButton<String>(
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: "edit",
-                                  child: Text("Editar"),
-                                ),
-                                PopupMenuItem(
-                                  value: "delete",
-                                  child: Text("Eliminar"),
-                                ),
-                              ],
-                              onSelected: (value) {
-                                if (value == "edit") {
-                                  _editProduct(docs[i].id, data);
-                                } else {
-                                  _deleteProduct(docs[i].id);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProductDetailScreen(
-                                name: data["name"],
-                                description: data["description"],
-                                price: price,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
               },
             ),
-          ),
+          )
         ],
+      ),
+    );
+  }
+}
+
+//
+// ======================================================
+// CARD DE RESULTADO – ESTILO DISEÑO
+// ======================================================
+//
+
+class _SearchResultCard extends StatelessWidget {
+  final String chainName;
+  final String logoUrl;
+  final String medicationName;
+  final String description;
+  final double price;
+  final String statusText;
+  final Color statusColor;
+  final bool inStock;
+  final VoidCallback onAdd;
+  final VoidCallback onBuy;
+  final VoidCallback onTap;
+
+  static const Color turquoise = Color(0xFF45B7B7);
+  static const Color greyButton = Color(0xFFBDBDBD);
+
+  const _SearchResultCard({
+    required this.chainName,
+    required this.logoUrl,
+    required this.medicationName,
+    required this.description,
+    required this.price,
+    required this.statusText,
+    required this.statusColor,
+    required this.inStock,
+    required this.onAdd,
+    required this.onBuy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        elevation: 3,
+        shadowColor: Colors.black.withOpacity(0.12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // LOGO FARMACIA
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white,
+                ),
+                child: logoUrl.isNotEmpty
+                    ? Image.network(
+                        logoUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.local_pharmacy, color: turquoise),
+                      )
+                    : const Icon(Icons.local_pharmacy, color: turquoise),
+              ),
+
+              const SizedBox(width: 14),
+
+              // INFORMACIÓN
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Estado
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Nombre farmacia
+                    Text(
+                      chainName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+
+                    // Medicamento
+                    Text(
+                      medicationName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Precio
+                    Text(
+                      "\$${price.toStringAsFixed(0)}",
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: turquoise,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Botones
+                    Row(
+                      children: [
+                        // BOTÓN AÑADIR
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.shopping_cart_outlined,
+                                size: 18),
+                            label: const Text("Añadir"),
+                            onPressed: inStock ? onAdd : null,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  inStock ? turquoise : greyButton,
+                              side: BorderSide(
+                                color:
+                                    inStock ? turquoise : greyButton,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 10),
+                              textStyle: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        // BOTÓN COMPRAR
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: inStock ? onBuy : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  inStock ? turquoise : greyButton,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12),
+                              textStyle: const TextStyle(fontSize: 14),
+                            ),
+                            child: const Text("Comprar"),
+                          ),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
